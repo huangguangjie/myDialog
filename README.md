@@ -6,4 +6,4 @@
 * 私有域空间及闭包的原理
 * 自定义事件及回调函数
 
-这是插件的[demo演示](https://huangguangjie.github.io/myDialog/
+这是插件的[demo演示](https://huangguangjie.github.io/myDialog/)
