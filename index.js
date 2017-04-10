@@ -71,6 +71,7 @@
             this.dom = this._parseToDom(this.tpl)[0]; //存放在实例中的节点
             this.hasDom = false; //检查dom树中dialog的节点是否存在
             this.listeners = []; //自定义事件，用于监听插件的用户交互
+            this.handlers = {};
         },
         _parseTpl: function(tmpId) { // 将模板转为字符串
             var data = this.def;
@@ -87,27 +88,49 @@
         show: function(callback){
             var _this = this;
             if(this.hasDom) return ;
-            if(!this._fireEvent('show')) return ;
+            if(this.listeners.indexOf('show') > -1) {
+                if(!this.emit({type:'show',target: this.dom})) return ;
+            }
             document.body.appendChild(this.dom);
             this.hasDom = true;
             this.dom.getElementsByClass('close')[0].onclick = function(){
                 _this.hide();
+                if(_this.listeners.indexOf('close') > -1) {
+                    _this.emit({type:'close',target: _this.dom})
+                }
+                !!_this.def.close && _this.def.close.call(this,_this.dom);
             };
             this.dom.getElementsByClass('btn-ok')[0].onclick = function(){
                 _this.hide();
+                if(_this.listeners.indexOf('confirm') > -1) {
+                    _this.emit({type:'confirm',target: _this.dom})
+                }
+                !!_this.def.confirm && _this.def.confirm.call(this,_this.dom);
             };
             if(this.def.cancel){
                 this.dom.getElementsByClass('btn-cancel')[0].onclick = function(){
                     _this.hide();
+                    if(_this.listeners.indexOf('cancel') > -1) {
+                        _this.emit({type:'cancel',target: _this.dom})
+                    }
                 };
             }
             callback && callback();
+            if(this.listeners.indexOf('shown') > -1) {
+                this.emit({type:'shown',target: this.dom})
+            }
             return this;
         },
         hide: function(callback){
+            if(this.listeners.indexOf('hide') > -1) {
+                if(!this.emit({type:'hide',target: this.dom})) return ;
+            }
             document.body.removeChild(this.dom);
             this.hasDom = false;
             callback && callback();
+            if(this.listeners.indexOf('hidden') > -1) {
+                this.emit({type:'hidden',target: this.dom})
+            }
             return this;
         },
         modifyTpl: function(template){
@@ -140,29 +163,39 @@
             this.dom.style.height = val + 'px';
             return this;
         },
-        on: function(type,fn){
+        on: function(type, handler){
             // type: show, shown, hide, hidden, close, confirm
-            console.log(type);
-            if (typeof this.listeners[type] === "undefined") {
-                this.listeners[type] = [];
+            if(typeof this.handlers[type] === 'undefined') {
+                this.handlers[type] = [];
             }
-            if (typeof fn === "function") {
-                this.listeners[type].push(fn);
-            }    
-            // switch(type) {
-            //     case 'show':
-            //         break;
-            //     case 'shown': break;
-            //     case 'hide': break;
-            //     case 'hidden': break;
-            //     case 'close': break;
-            //     case 'confirm': break;
-            //     default: break;
-            // }
+            this.listeners.push(type);
+            this.handlers[type].push(handler);
             return this;
         },
-        off: function(type,fn){},
-        _fireEvent: function(type){
+        off: function(type, handler){
+            if(this.handlers[type] instanceof Array) {
+                var handlers = this.handlers[type];
+                for(var i = 0, len = handlers.length; i < len; i++) {
+                    if(handlers[i] === handler) {
+                        break;
+                    }
+                }
+                this.listeners.splice(i, 1);
+                handlers.splice(i, 1);
+                return this;
+            }
+        },
+        emit: function(event){
+            if(!event.target) {
+                event.target = this;
+            }
+            if(this.handlers[event.type] instanceof Array) {
+                var handlers = this.handlers[event.type];
+                for(var i = 0, len = handlers.length; i < len; i++) {
+                    handlers[i](event);
+                    return true;
+                }
+            }
             return false;
         }
     }
